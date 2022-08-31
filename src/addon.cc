@@ -197,7 +197,7 @@ namespace c_internals {
         if (rc < 0) {
             isolate->ThrowException(Exception::Error(
                 String::NewFromUtf8(isolate, std::string("Process creation crashed, error code" + std::to_string(rc)).c_str()).ToLocalChecked()));
-            return;
+            GitReturn ret{ path.generic_string(), GitStatus::error, std::string("Process creation crashed, error code" + std::to_string(rc)) };
         }
 
         
