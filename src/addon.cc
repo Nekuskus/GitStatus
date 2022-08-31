@@ -100,14 +100,14 @@ int SystemCapture(
                     &n,
                     nullptr
                 );
-                printf("STDERR: Success:%d n:%d\n", Success, (int)n);
+                //printf("STDERR: Success:%d n:%d\n", Success, (int)n);
                 if (!Success || n == 0)
                     break;
                 std::string s(buffer, n);
                 printf("STDOUT:(%s)\n", s.c_str());
                 ListStdOut += s;
             }
-            printf("STDOUT:BREAK!\n");
+            //printf("STDOUT:BREAK!\n");
             });
     }
 
@@ -125,14 +125,14 @@ int SystemCapture(
                     &n,
                     nullptr
                 );
-                printf("STDERR: Success:%d n:%d\n", Success, (int)n);
+                //printf("STDERR: Success:%d n:%d\n", Success, (int)n);
                 if (!Success || n == 0)
                     break;
                 std::string s(buffer, n);
                 printf("STDERR:(%s)\n", s.c_str());
-                ListStdOut += s;
+                ListStdErr += s;
             }
-            printf("STDERR:BREAK!\n");
+            //printf("STDERR:BREAK!\n");
             });
     }
 
@@ -166,6 +166,7 @@ namespace c_internals {
 	using v8::Array;
 	using v8::Context;
 	using v8::Integer;
+    using v8::HandleScope;
 
 	enum GitStatus {
 		clean = 0,
@@ -180,8 +181,8 @@ namespace c_internals {
 		std::string errormessage;
 	};
 
-	GitReturn rungit(Isolate *isolate, std::filesystem::path path) {
-
+	GitReturn rungit(Isolate *isolate, HandleScope* scope, std::filesystem::path path) {
+        std::cout << path.generic_string() << '\n';
         int rc;
         uint32_t retcode;
         std::string out;
@@ -199,7 +200,6 @@ namespace c_internals {
                 String::NewFromUtf8(isolate, std::string("Process creation crashed, error code" + std::to_string(rc)).c_str()).ToLocalChecked()));
             GitReturn ret{ path.generic_string(), GitStatus::error, std::string("Process creation crashed, error code" + std::to_string(rc)) };
         }
-
         
         GitStatus returnstatus = GitStatus::clean;
         //check if error occured
@@ -207,7 +207,7 @@ namespace c_internals {
         size_t index = out.find(errorstring);
         std::string errormessage = "";
         if (index != std::string::npos) {
-            errormessage = out.at(index + 7);
+           errormessage = out.at(index + 7);
             returnstatus = GitStatus::error;
         } else if (out != "\n") returnstatus = GitStatus::notclean;
 
@@ -217,9 +217,9 @@ namespace c_internals {
     }
 
 	void Gitstatus(const FunctionCallbackInfo<Value>& args) {
-		Isolate* isolate = args.GetIsolate();
-		
-		Local<v8::Context> context = v8::Context::New(isolate);
+        Isolate* isolate = args.GetIsolate();
+        HandleScope scope(isolate);
+		Local<Context> context = Context::New(isolate);
 
 		std::filesystem::path path = std::filesystem::current_path();
 
@@ -243,7 +243,7 @@ namespace c_internals {
 
 		std::vector<std::future<GitReturn>> futures;
 		for (const auto& dir : std::filesystem::directory_iterator(path)) {
-			futures.push_back(std::async(std::launch::async, &rungit, isolate, dir));
+			futures.push_back(std::async(std::launch::async, &rungit, isolate, &scope, dir));
 		}
 		
 		std::vector<GitReturn> results;
@@ -251,21 +251,16 @@ namespace c_internals {
 		for (; index < futures.size(); index++) {
 			results.push_back(futures[index].get());
 		}
-		auto arr = Array::New(isolate, index * 3);
+		auto arr = Array::New(isolate, index);
 		
 		size_t i = 0;
-		for (size_t i3 = 0; i3 < arr->Length();i3+=3)
+		for (size_t i = 0; i < arr->Length(); i++)
 		{
-			i++;
-			Local<String> folder;
-			Local<String> stat;
-			Local<String> err;
-			String::NewFromUtf8(isolate, results[i].foldername.c_str()).ToLocal(&folder);
-			Integer::New(isolate, results[i].status);
-			String::NewFromUtf8(isolate, results[i].errormessage.c_str()).ToLocal(&err);
-			arr->Set(context, i3, folder);
-			arr->Set(context, i3+1, stat);
-			arr->Set(context, i3+2, err);
+            Local<Object> retvalue = Object::New(isolate);
+            retvalue->Set(context, String::NewFromUtf8(isolate, "FolderName").ToLocalChecked(), String::NewFromUtf8(isolate, results[i].foldername.c_str()).ToLocalChecked());
+            retvalue->Set(context, String::NewFromUtf8(isolate, "ErrorMessage").ToLocalChecked(), String::NewFromUtf8(isolate, results[i].errormessage.c_str()).ToLocalChecked());
+            retvalue->Set(context, String::NewFromUtf8(isolate, "Status").ToLocalChecked(), Integer::New(isolate, results[i].status));
+            arr->Set(context, i, retvalue);
 		}
 
 		args.GetReturnValue().Set(arr);
