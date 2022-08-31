@@ -186,7 +186,7 @@ namespace c_internals {
         uint32_t retcode;
         std::string out;
         std::string err;
-        std::string args = "git -C " + path.generic_string() + " status";
+        std::string args = "git -C " + path.generic_string() + " status --short";
         rc = SystemCapture(
             args,
             ".",
@@ -200,14 +200,21 @@ namespace c_internals {
             return;
         }
 
-
+        
+        GitStatus returnstatus = GitStatus::clean;
+        //check if error occured
         std::string errorstring = "fatal:";
+        size_t index = out.find(errorstring);
+        std::string errormessage = "";
+        if (index != std::string::npos) {
+            errormessage = out.at(index + 7);
+            returnstatus = GitStatus::error;
+        } else if (out != "\n") returnstatus = GitStatus::notclean;
 
 
-
-
-		GitReturn ret{ path.generic_string(), GitStatus::clean /*replace later*/, ""};
-	}
+		GitReturn ret{path.generic_string(), returnstatus, errormessage};
+        return ret;
+    }
 
 	void Gitstatus(const FunctionCallbackInfo<Value>& args) {
 		Isolate* isolate = args.GetIsolate();
