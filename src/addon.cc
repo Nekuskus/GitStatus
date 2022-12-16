@@ -187,7 +187,7 @@ namespace c_internals {
         uint32_t retcode;
         std::string out;
         std::string err;
-        std::string args = "git -C " + path.generic_string() + " status --short";
+        std::string args = "git -C " + path.generic_string() + " status";
         rc = SystemCapture(
             args,
             ".",
@@ -207,7 +207,7 @@ namespace c_internals {
         size_t index = out.find(errorstring);
         std::string errormessage = "";
         if (index != std::string::npos) {
-           errormessage = out.at(index + 7);
+            errormessage = out.at(index + 7);
             returnstatus = GitStatus::error;
         } else if (out != "\n") returnstatus = GitStatus::notclean;
 
