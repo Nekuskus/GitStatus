@@ -104,7 +104,7 @@ int SystemCapture(
                 if (!Success || n == 0)
                     break;
                 std::string s(buffer, n);
-                printf("STDOUT:(%s)\n", s.c_str());
+                //printf("STDOUT:(%s)\n", s.c_str());
                 ListStdOut += s;
             }
             //printf("STDOUT:BREAK!\n");
@@ -213,6 +213,9 @@ namespace c_internals {
 
 
 		GitReturn ret{path.generic_string(), returnstatus, errormessage};
+        std::cout << "folder: " << ret.foldername << '\n';
+        std::cout << "status: " << ret.status << '\n';
+        std::cout << "errormessage: " << ret.errormessage << '\n';
         return ret;
     }
 
